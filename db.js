@@ -85,7 +85,32 @@ function memLikeComment(id, liked) {
   return c;
 }
 
+// ---------- Users (in-memory) ----------
+let memUsers = [];
+let memUserId = 1;
+
+function memGetUserByUsername(username) {
+  return memUsers.find(u => u.username === username) || null;
+}
+function memCreateUser(data) {
+  const user = { id: memUserId++, username: data.username, email: data.email, password: data.password, created_at: new Date().toISOString() };
+  memUsers.push(user);
+  return user;
+}
+
 // ---------- Postgres store (koristi se kad je DATABASE_URL podešen, npr. na OctaDeploy) ----------
+async function pgGetUserByUsername(username) {
+  const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+  return rows[0] || null;
+}
+async function pgCreateUser(data) {
+  const { rows } = await pool.query(
+    'INSERT INTO users (username, email, password) VALUES ($1,$2,$3) RETURNING *',
+    [data.username, data.email, data.password]
+  );
+  return rows[0];
+}
+
 async function pgInit() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS posts (
@@ -105,6 +130,16 @@ async function pgInit() {
       "user" TEXT NOT NULL,
       text TEXT NOT NULL,
       likes INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      password TEXT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT now()
     );
   `);
