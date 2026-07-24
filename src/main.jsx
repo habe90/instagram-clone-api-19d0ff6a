@@ -66,21 +66,8 @@ function readStoredPost(post) {
   }
 }
 
-const AUTH_USERS_KEY = 'ig-auth-users';
 const AUTH_SESSION_KEY = 'ig-auth-session';
 const POSTS_KEY = 'ig-posts';
-
-function loadUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(AUTH_USERS_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(users) {
-  localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
-}
 
 function loadSession() {
   try {
@@ -109,6 +96,7 @@ function AuthPage({ onAuth }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   function resetFields() {
     setUsername('');
@@ -122,18 +110,30 @@ function AuthPage({ onAuth }) {
     resetFields();
   }
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
-    const users = loadUsers();
-    const found = users.find(u => u.username === username.trim() && u.password === password);
-    if (!found) {
-      setError('Pogrešno korisničko ime ili lozinka.');
-      return;
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Pogrešno korisničko ime ili lozinka.');
+        return;
+      }
+      onAuth({ username: data.username, email: data.email });
+    } catch {
+      setError('Greška u komunikaciji sa serverom.');
+    } finally {
+      setLoading(false);
     }
-    onAuth({ username: found.username, email: found.email });
   }
 
-  function handleRegister(e) {
+  async function handleRegister(e) {
     e.preventDefault();
     const cleanUsername = username.trim();
     const cleanEmail = email.trim();
@@ -145,14 +145,25 @@ function AuthPage({ onAuth }) {
       setError('Lozinka mora imati bar 6 karaktera.');
       return;
     }
-    const users = loadUsers();
-    if (users.some(u => u.username === cleanUsername)) {
-      setError('Korisničko ime već postoji.');
-      return;
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanUsername, email: cleanEmail, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Registracija nije uspela.');
+        return;
+      }
+      onAuth({ username: data.username, email: data.email });
+    } catch {
+      setError('Greška u komunikaciji sa serverom.');
+    } finally {
+      setLoading(false);
     }
-    const newUser = { username: cleanUsername, email: cleanEmail, password };
-    saveUsers([...users, newUser]);
-    onAuth({ username: newUser.username, email: newUser.email });
   }
 
   return <div className="authPage">
@@ -172,7 +183,7 @@ function AuthPage({ onAuth }) {
           <input type="password" placeholder="Lozinka" value={password} onChange={e => setPassword(e.target.value)} required/>
         </label>
         {error && <p className="authError">{error}</p>}
-        <button type="submit" className="authSubmit">{mode === 'login' ? 'Prijavi se' : 'Registruj se'}</button>
+        <button type="submit" className="authSubmit" disabled={loading}>{loading ? 'Sačekaj...' : (mode === 'login' ? 'Prijavi se' : 'Registruj se')}</button>
       </form>
     </div>
     <div className="authCard authSwitch">
