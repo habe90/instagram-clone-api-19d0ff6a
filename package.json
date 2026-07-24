@@ -6,12 +6,17 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "echo \"No build step required for this Node API\"",
+    "build": "vite build",
     "test": "node test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "pg": "^8.11.5"
+    "pg": "^8.11.5",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "lucide-react": "0.468.0",
+    "vite": "5.4.11",
+    "@vitejs/plugin-react": "4.3.4"
   }
 }
