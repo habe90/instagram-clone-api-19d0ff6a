@@ -1,6 +1,7 @@
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 const db = require('./db');
 
 const app = express();
@@ -10,6 +11,53 @@ app.use(express.json());
 // ---------- API rute ----------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', db: db.useDb ? 'postgres' : 'in-memory' });
+});
+
+// ---------- Auth rute ----------
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    const cleanUsername = (username || '').trim();
+    const cleanEmail = (email || '').trim();
+    if (!cleanUsername || !cleanEmail || !password) {
+      return res.status(400).json({ error: 'Sva polja su obavezna.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Lozinka mora imati bar 6 karaktera.' });
+    }
+    const existing = await db.getUserByUsername(cleanUsername);
+    if (existing) {
+      return res.status(409).json({ error: 'Korisničko ime već postoji.' });
+    }
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await db.createUser({ username: cleanUsername, email: cleanEmail, password: hashed });
+    res.status(201).json({ username: user.username, email: user.email });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Greška pri registraciji.' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const cleanUsername = (username || '').trim();
+    if (!cleanUsername || !password) {
+      return res.status(400).json({ error: 'Sva polja su obavezna.' });
+    }
+    const user = await db.getUserByUsername(cleanUsername);
+    if (!user) {
+      return res.status(401).json({ error: 'Pogrešno korisničko ime ili lozinka.' });
+    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ error: 'Pogrešno korisničko ime ili lozinka.' });
+    }
+    res.json({ username: user.username, email: user.email });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Greška pri prijavi.' });
+  }
 });
 
 app.get('/api/posts', async (req, res) => {
