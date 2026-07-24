@@ -6,6 +6,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get('/', (req, res) => res.json({ name: 'instagram-clone-api', status: 'ok', docs: '/api/health' }));
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', db: db.useDb ? 'postgres' : 'in-memory' });
 });
