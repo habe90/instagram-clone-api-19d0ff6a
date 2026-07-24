@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
@@ -6,8 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => res.json({ name: 'instagram-clone-api', status: 'ok', docs: '/api/health' }));
-
+// ---------- API rute ----------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', db: db.useDb ? 'postgres' : 'in-memory' });
 });
@@ -111,6 +111,20 @@ app.post('/api/comments/:id/like', async (req, res) => {
   }
 });
 
+// 404 za nepostojeće /api rute (mora ići posle svih definisanih /api ruta)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API ruta nije pronađena.' });
+});
+
+// ---------- Frontend (Vite build izlaz) ----------
+const distPath = path.join(__dirname, 'dist');
+app.use(express.static(distPath));
+
+// SPA fallback: sve rute koje nisu /api/* vraćaju index.html Instagram klona
+app.get(/^\/(?!api\/).*/, (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
@@ -118,7 +132,7 @@ if (require.main === module) {
   db.init()
     .then(() => {
       app.listen(PORT, HOST, () => {
-        console.log(`API server running on http://${HOST}:${PORT} (db: ${db.useDb ? 'postgres' : 'in-memory'})`);
+        console.log(`Server running on http://${HOST}:${PORT} (db: ${db.useDb ? 'postgres' : 'in-memory'})`);
       });
     })
     .catch(err => {
